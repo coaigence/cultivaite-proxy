@@ -12,20 +12,8 @@ const PORT = process.env.PORT || 3000;
 
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
 
-const ALLOWED_ORIGINS = [
-  'https://coaigence.github.io',
-  'http://localhost:3000'
-];
-
-app.use(cors({
-  origin: function(origin, callback) {
-    if (!origin || ALLOWED_ORIGINS.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  }
-}));
+// Allow all origins for cultivaite
+app.use(cors());
 
 app.use(express.json({ limit: '10mb' }));
 
