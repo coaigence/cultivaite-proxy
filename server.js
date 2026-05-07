@@ -8,7 +8,7 @@ const express = require('express');
 const cors    = require('cors');
 
 const app  = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
 
 // ── Your Anthropic key lives here as an environment variable ──
 // Set ANTHROPIC_API_KEY in your hosting dashboard. Never hardcode it.
