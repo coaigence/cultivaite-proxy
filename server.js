@@ -1,24 +1,20 @@
 // ============================================================
 //  cultivaite proxy server
 //  Hides Anthropic API key from end users
-//  Deploy on Railway, Render, or Fly.io
+//  Deploy on Railway
 // ============================================================
 
 const express = require('express');
 const cors    = require('cors');
 
 const app  = express();
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 3000;
 
-// ── Your Anthropic key lives here as an environment variable ──
-// Set ANTHROPIC_API_KEY in your hosting dashboard. Never hardcode it.
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
 
-// ── Optional: restrict which domains can call this proxy ──
-// Add your GitHub Pages URL here to lock it down
 const ALLOWED_ORIGINS = [
   'https://coaigence.github.io',
-  'http://localhost:3000' // for local testing
+  'http://localhost:3000'
 ];
 
 app.use(cors({
@@ -31,14 +27,53 @@ app.use(cors({
   }
 }));
 
-app.use(express.json({ limit: '10mb' })); // images can be large
+app.use(express.json({ limit: '10mb' }));
 
 // ── Health check ──
 app.get('/', (req, res) => {
   res.json({ status: 'cultivaite proxy running' });
 });
 
-// ── Main proxy endpoint ──
+// ── Market Map endpoint ──
+app.post('/map', async (req, res) => {
+  if (!ANTHROPIC_KEY) {
+    return res.status(500).json({ error: 'API key not configured on server.' });
+  }
+  const { prompt } = req.body;
+  if (!prompt) return res.status(400).json({ error: 'No prompt provided.' });
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type':      'application/json',
+        'x-api-key':         ANTHROPIC_KEY,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model:      'claude-haiku-4-5-20251001',
+        max_tokens: 4000,
+        messages:   [{ role: 'user', content: prompt }]
+      })
+    });
+
+    if (!response.ok) {
+      const err = await response.text();
+      return res.status(response.status).json({ error: err });
+    }
+
+    const data = await response.json();
+    const raw  = (data.content || []).map(c => c.text || '').join('').replace(/```json|```/g, '').trim();
+    let parsed = [];
+    try { parsed = JSON.parse(raw); } catch(e) {}
+    res.json({ result: parsed });
+
+  } catch(err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Contact extraction endpoint ──
 app.post('/extract', async (req, res) => {
   if (!ANTHROPIC_KEY) {
     return res.status(500).json({ error: 'API key not configured on server.' });
@@ -46,11 +81,9 @@ app.post('/extract', async (req, res) => {
 
   const { imageBase64, mediaType, transcript } = req.body;
 
-  // Build message content based on what was sent
   let content = [];
 
   if (imageBase64) {
-    // Image scan mode
     content = [
       {
         type: 'image',
@@ -62,8 +95,7 @@ app.post('/extract', async (req, res) => {
       }
     ];
   } else if (transcript) {
-    // Voice mode
-    content = 'Extract contact info from this spoken input and return ONLY valid JSON, no markdown: {"first":"","last":"","company":"","title":"","email":"","phone":"","notes":""}\\n\\nSpoken input: ' + transcript;
+    content = 'Extract contact info from this spoken input and return ONLY valid JSON, no markdown: {"first":"","last":"","company":"","title":"","email":"","phone":"","notes":""}\n\nSpoken input: ' + transcript;
   } else {
     return res.status(400).json({ error: 'No image or transcript provided.' });
   }
