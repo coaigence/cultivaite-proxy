@@ -35,8 +35,8 @@ app.post('/map', async (req, res) => {
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 8000,
+        model: 'claude-sonnet-5',
+        max_tokens: 4000,
         tools: [
           {
             type: 'web_search_20250305',
@@ -51,6 +51,13 @@ app.post('/map', async (req, res) => {
     if (!response.ok) {
       const err = await response.text();
       console.error('Anthropic error:', err);
+      // Handle rate limit with friendly message
+      if (response.status === 429) {
+        return res.status(429).json({ 
+          error: 'rate_limit',
+          message: 'API rate limit reached. Please wait 60 seconds and try again with fewer results.'
+        });
+      }
       return res.status(response.status).json({ error: err });
     }
 
@@ -152,7 +159,7 @@ app.post('/extract', async (req, res) => {
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
+        model: 'claude-haiku-4-5',
         max_tokens: 300,
         messages: [{ role: 'user', content }]
       })
